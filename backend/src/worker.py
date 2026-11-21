@@ -1,6 +1,7 @@
 import logging
 import time
 from pathlib import Path
+from src.services.bound_runs import claim_bound, execute_bound
 from src.services.execution import claim, execute, materialize_due
 from src.utils.wakeup import wait
 
@@ -14,12 +15,15 @@ def main():
         try:
             materialize_due()
             lease = claim()
-            heartbeat.touch()
             if lease:
                 execute(lease)
-                heartbeat.touch()
             else:
-                wait()
+                bound_lease = claim_bound()
+                if bound_lease:
+                    execute_bound(bound_lease)
+                else:
+                    wait()
+            heartbeat.touch()
         except Exception:
             log.exception('Worker cycle failed')
             time.sleep(2)

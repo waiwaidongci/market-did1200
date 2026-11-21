@@ -7,7 +7,12 @@ from src.config.database import Base, engine
 from src.config.settings import SEED_DEMO
 from src.domain.spec import SPEC
 from src.middlewares import errors, headers, rate
-from src.routes import distribution, identity, registry, runs
+# 显式导入全部模型，确保 Base.metadata.create_all 建出区间/周账相关表。
+from src.models import bucket as _bucket_models  # noqa: F401
+from src.models import identity as _identity_models  # noqa: F401
+from src.models import jobs as _jobs_models  # noqa: F401
+from src.models import source as _source_models  # noqa: F401
+from src.routes import bucket, distribution, identity, registry, runs
 from src.utils.wakeup import broker
 
 log = logging.getLogger(__name__)
@@ -29,7 +34,7 @@ app = FastAPI(title=SPEC['title'], lifespan=lifespan)
 errors.install(app)
 headers.install(app)
 rate.install(app)
-for module in (identity, registry, runs):
+for module in (identity, registry, runs, bucket):
     app.include_router(module.router)
 if SPEC.get('scheduled'):
     app.include_router(distribution.router)

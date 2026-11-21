@@ -10,6 +10,35 @@ function shape(tag, attrs) {
 export function plot(chart) {
   const series = chart.series;
   if (!series.length) return el('section', {class:'plot'}, h(3, chart.title), p('无可绘制数据', 'empty'));
+
+  if (chart.kind === 'range') {
+    const lows = series.map(item => item.low);
+    const highs = series.map(item => item.high);
+    const bound = Math.max(0, ...highs);
+    const bottom = Math.min(0, ...lows);
+    const span = bound - bottom || 1;
+    const x = i => 28 + (i + .5) * 724 / series.length;
+    const y = n => 16 + (bound - n) * 135 / span;
+    const baseline = y(0);
+    const svg = shape('svg', {viewBox:'0 0 780 167', role:'img', 'aria-label':chart.title});
+    svg.append(shape('line', {x1:25,x2:755,y1:baseline,y2:baseline,class:'axis'}));
+    series.forEach((item, i) => {
+      const yLow = y(item.low), yHigh = y(item.high);
+      const mark = shape('line', {x1:x(i),x2:x(i),y1:yLow,y2:yHigh,class:'trend','stroke-width':6});
+      const capLow = shape('line', {x1:x(i)-14,x2:x(i)+14,y1:yLow,y2:yLow,class:'trend','stroke-width':3});
+      const capHigh = shape('line', {x1:x(i)-14,x2:x(i)+14,y1:yHigh,y2:yHigh,class:'trend','stroke-width':3});
+      const title = shape('title', {});
+      title.textContent = `${item.label} · ${value(item.low)} ~ ${value(item.high)}`;
+      mark.append(title);
+      svg.append(mark, capLow, capHigh);
+    });
+    const labels = el('div', {class:'plot-labels'}, ...series.map(item =>
+      el('span', {}, `${item.label}：${value(item.low)} ~ ${value(item.high)}`)));
+    return el('section', {class:'plot'}, h(3, chart.title), svg, labels,
+      el('details', {class:'series-values'}, el('summary', {}, '查看图表数值'),
+        el('ul', {}, series.map(item => el('li', {}, `${item.label} · ${value(item.low)} ~ ${value(item.high)}`)))));
+  }
+
   const values = series.map(item => item.value);
   const bound = Math.max(0, ...values);
   const bottom = Math.min(0, ...values);

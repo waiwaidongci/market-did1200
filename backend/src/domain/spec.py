@@ -39,7 +39,7 @@ SPEC = {
     "decision": "试点复核决定",
     "action": "提交试点复核",
     "modes": ["继续观察", "补报后重算", "提交扩围评估"],
-    "pages": ["试点总览", "门岗明细", "差分测算", "试点结果", "复核决定", "报告交付"],
+    "pages": ["试点总览", "门岗明细", "差分测算", "试点结果", "复核决定", "报告交付", "区间周账上下限"],
     "fields": [
         {"key": "market_id", "label": "市场", "type": "string", "required": True},
         {"key": "date", "label": "观测日期", "type": "date", "required": True},
@@ -60,4 +60,46 @@ SPEC = {
     ],
     "fixture": {"window_days": 5, "pretrend_threshold": 1},
     "axes": "四格均值图以分钟显示各组前后均值。组间差值图按时间排列，纵轴为试点组减对照组的等候分钟。",
+    # 区间车数 + 周总分钟约束下的双重差分上下限（门岗只报区间车数，周账另记总等待分钟）。
+    "bucket": {
+        "title": "区间车数周账双重差分上下限",
+        "short_name": "market-did-bounds",
+        "sample_gate": "澄河卸货区间车数_20261026-1115.csv",
+        "sample_ledger": "澄河等候周账_20261026-1115.csv",
+        "default_gate": "澄河七家市场 10 月 26 日至 11 月 15 日门岗区间车数",
+        "default_ledger": "澄河七家市场同期等候分钟周账",
+        "gate_entity": "门岗区间车数记录",
+        "ledger_entity": "周总等待分钟记录",
+        "run": "周账约束差分上下限测算",
+        # 等候分钟区间：下界含、上界不含，最后一个含上界 1440。
+        "buckets": [
+            {"key": "b0_15", "label": "0–15 分钟", "lower": 0, "upper": 15},
+            {"key": "b15_30", "label": "15–30 分钟", "lower": 15, "upper": 30},
+            {"key": "b30_60", "label": "30–60 分钟", "lower": 30, "upper": 60},
+            {"key": "b60_120", "label": "60–120 分钟", "lower": 60, "upper": 120},
+            {"key": "b120_1440", "label": "120–1440 分钟", "lower": 120, "upper": 1440},
+        ],
+        "bucket_fields": [
+            {"key": "market_id", "label": "市场", "type": "string", "required": True},
+            {"key": "date", "label": "观测日期", "type": "date", "required": True},
+            {"key": "group", "label": "试点分组", "type": "select", "required": True,
+             "options": ["试点组", "对照组"]},
+        ],
+        "count_field": {"key": "truck_count", "label": "区间车辆数", "type": "int",
+                        "min": 0, "max": 10000},
+        "ledger_fields": [
+            {"key": "market_id", "label": "市场", "type": "string", "required": True},
+            {"key": "week_start", "label": "周起始日（周一）", "type": "date", "required": True},
+            {"key": "total_wait_minutes", "label": "周总等待分钟", "type": "int",
+             "required": True, "min": 0, "max": 100_000_000},
+        ],
+        "methodology": [
+            "门岗逐市场逐日只报各等候区间的车辆数，单车的具体等候分钟未知；周账另记同一市场同一自然周（周一起）这批车的总等待分钟。",
+            "每个市场日的总等待分钟，下界为各区间下界乘以车数之和，上界为各区间上界乘以车数之和（末区间含上界 1440）。",
+            "周账存在且该市场周在观测数据内逐日齐全时，周总分钟必须落在各日上下界之和内，否则按市场和周列出对账冲突；周账覆盖窗口外的天，窗口外天同样计入该周约束。",
+            "市场日等权，先按与均值批次相同的平衡面板口径取三个等长窗口逐日齐全的市场，再对四格均值与双重差分求区间界。",
+            "目标对每日总分钟为线性，约束按自然周解耦，极值在每个市场周内按系数正负把可分配分钟贪心填满，得到可同时达到的上下限。",
+            "跨试点启动日的自然周也整体参与约束；无周账的市场周只使用每日区间界，结果区间更宽。",
+        ],
+    },
 }
